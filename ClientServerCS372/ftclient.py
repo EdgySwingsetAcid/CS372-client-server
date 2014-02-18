@@ -13,17 +13,16 @@ class ftclient:
     Last Modified: 2/17/2014
     """
 
-    HOST = 'B'
     CTRLPORT = 30021
     DATAPORT = 30020
     BUFFER_SIZE = 1024
 
-    def __init__(self):
+    def __init__(self, host):
         """ Initialization routine.  Connects to port 30021. """
         self.ctrl_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.ctrl_sock.connect((HOST, CTRLPORT))
+        self.ctrl_sock.connect((host, self.CTRLPORT))
 
-        print('Connected over host B on port 30021.\n')        
+        print 'Connected over host B on port 30021.\n'        
 
     def start(self, cmd, file):
         """
@@ -36,33 +35,38 @@ class ftclient:
               calls routine that establishes and works on a TCP data connection.
         4. Closes the TCP data connection.
         """
-        if cmd == 'get':
-            cmd = cmd + ' ' + file
+        try:
+            if cmd == 'get':
+                cmd = cmd + ' ' + file
 
-        send(cmd)
-        data = self.ctrl_sock.recv(BUFFER_SIZE)
+            send(cmd)
+            data = self.ctrl_sock.recv(BUFFER_SIZE)
             
-        if data:           
-            data = data.split()
-            if int(data[0]) == 0:
-                print(data[1])
-            else:
-                # Connect to Q, get data from it, print that out
-                print('')
+            if data:           
+                data = data.split()
+                if int(data[0]) == 0:
+                    print(data[1])
+                else:
+                    # Connect to Q, get data from it, print that out
+                    print ''
         
-        print('Finished getting data.  Closing...\n')    
-        self.ctrl_sock.close()
+            print 'Finished getting data.\n'    
+            self.ctrl_sock.close()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print '\nExiting...'
 
 
 
 # Enty point for the application.
 # Intantiates and starts the client.
 if __name__ == "__main__":
-    if not len(sys.argv) > 1 and not len(sys.argv) <= 3:
-        print('usage: ftclient [command] (optional)[filename]')
-        exit(1)
-    client = ftclient()
-    if len(sys.argv) == 2:
-        client.start(sys.argv[1], '')
+    if len(sys.argv) > 4 or len(sys.argv) < 3:
+        print 'usage: ftclient [host] [command] (optional)[filename]'
     else:
-        client.start(sys.argv[1], sys.argv[2])
+        client = ftclient(sys.argv[1])
+        if len(sys.argv) == 2:
+            client.start(sys.argv[2], '')
+        else:
+            client.start(sys.argv[2], sys.argv[3])
