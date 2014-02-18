@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>0417b8fa-c2dd-43b2-830d-31d798292692</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>ftserve.py</StartupFile>
+    <StartupFile>ftserv.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -24,7 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ftclient.py" />
-    <Compile Include="ftserve.py" />
+    <Compile Include="ftserv.py" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>

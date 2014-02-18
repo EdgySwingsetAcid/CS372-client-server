@@ -1,4 +1,5 @@
 import sys
+import os
 import socket
 
 class ftserv:
@@ -27,14 +28,14 @@ class ftserv:
 
         print 'Connecting over host A on port 30021...'
 
-        self.listen = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listen.bind((host, self.CTRLPORT))
-        self.listen.listen(1)
+        self.ctrlsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.ctrlsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.ctrlsock.bind((host, self.CTRLPORT))
+        self.ctrlsock.listen(1)
 
         print 'Waiting on a client...'
 
-    def start(self):
+    def start(self, host):
         """
         Routine which handles the following:
         
@@ -47,38 +48,72 @@ class ftserv:
         3. Closing the TCP control connection once a termination signal is recieved.
         """        
         try:
-            conn, addr = self.listen.accept()
-            print 'Accepted client at address: ' + addr
-
+            ctrlconn, ctrladdr = self.ctrlsock.accept()
+            print 'Client connected!'
             while True:
-                data = conn.recv(self.BUFFER_SIZE)
+                data = ctrlconn.recv(self.BUFFER_SIZE)
             
                 if not data:
                     break
 
                 cmd_list = data.split()
 
-                if valid_cmd(cmd_list[0]):
+                if self.valid_cmd(cmd_list[0]):
                     if cmd_list[0] == 'list':
-                        print 'got a list command!'
-                        conn.send('1')
+                        print 'Received list command.  Sending cwd.'
+                        ctrlconn.send('1')
+                        self.service_client(host, cmd_list, True)
                     else:
-                        print 'got a get command!'
-                        conn.send('1')
-
-                    # initialize TCP data connection and do work son
+                        print 'Received get command.'
+                        ctrlconn.send('1')
+                        if self.valid_file(cmd_list[1]):
+                            self.service_client(host, cmd_list, False)
+                        else:
+                            ctrlconn.send('0 ERROR: file does not exist in current directory.')                    
                 else:
-                    print('Uh-oh, should probably send an error message here!')
                     conn.send('0 ERROR: command not supported.')
-            conn.close()
+            ctrlconn.close()
         except KeyboardInterrupt:
             pass
         finally:
             print '\nExiting...'
 
+    def service_client(self, host, cmd_list, list_flag):
+        """
+        Utility function which sets up a TCP data connection,
+        accepts a connection, and sends either the current working directory
+        or the contents of the requested file.
+        """
+        self.init_data_conn(host)
+        dataconn, dataaddr = self.datasock.accept()
+
+        if list_flag:
+            dataconn.send(os.getcwd)
+        else:
+            # send file contents and stuff yo
+            print 'durrrr'
+        dataconn.close()
+
+    def init_data_conn(self, host):
+        """ Initializes a TCP data connection on port 30020. """
+        print 'Connecting over host A on port 30020...'
+
+        self.datasock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.datasock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.datasock.bind((host, self.DATAPORT))
+        self.datasock.listen(1)
+
     def valid_cmd(self, cmd):
         """Checks to see if command sent from server is a 'list' or 'get' command. """
         return cmd == 'list' or cmd == 'get'
+    
+    def valid_file(self, path):
+        """ Checks that a file exists in the cwd and is a file (not directory). """
+        return os.path.exists(path) and os.path.isfile(path)
+
+    def get_cwd(self):
+        """ Assembles the current working directory as a string """
+        return os.getcwd()
 
 # Enty point for the application.
 # Intantiates and starts the server.
@@ -87,4 +122,4 @@ if __name__ == "__main__":
         print 'usage: ftserv [host]'
     else:
         server = ftserv(sys.argv[1])
-        server.start()
+        server.start(sys.argv[1])
