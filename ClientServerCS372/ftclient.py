@@ -46,15 +46,16 @@ class ftclient:
             if data:           
                 data = data.split()
 
+                # If the data we got back is an error, print it out.
+                # Otherwise, it's time for some real data!
                 if int(data[0]) == 0:
                     print ' '.join(map(str, data[1:]))
                 else:
                     # Connect to Q, get data from it, print that out
                     self.connect_for_data(host)
-                    self.handle_data()
+                    self.handle_data(file)
                     self.data_sock.close()
-        
-            print 'Finished getting data.'    
+         
             self.ctrl_sock.close()
         except KeyboardInterrupt:
             pass
@@ -66,7 +67,7 @@ class ftclient:
         self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.data_sock.connect((host, self.DATAPORT))
 
-    def handle_data(self):
+    def handle_data(self, file):
         """
         Handles incoming data from the server.
 
@@ -79,8 +80,12 @@ class ftclient:
         data = self.data_sock.recv(self.BUFFER_SIZE)
         if data:
             if os.path.isdir(data):
-                print os.listdir(data)
+                print '\nCurrent directory contents:'
+                print '\n'.join(os.listdir(data))
             else:
+                print 'Got the file!  Writing to directory...'
+                with open(file, 'w') as the_file:
+                    the_file.write(data)
                 print 'durrr'
                 # save the file in the current directory
 

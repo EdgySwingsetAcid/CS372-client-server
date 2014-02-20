@@ -83,15 +83,19 @@ class ftserv:
         Utility function which sets up a TCP data connection,
         accepts a connection, and sends either the current working directory
         or the contents of the requested file.
+
+        Precondition:  if list_flag is false, cmd_list[1] is a valid file.
         """
         self.init_data_conn(host)
         dataconn, dataaddr = self.datasock.accept()
 
         if list_flag:
-            dataconn.send(os.getcwd)
+            dataconn.send(os.getcwd())
+            print 'Current Working Directory sent!'
         else:
-            # send file contents and stuff yo
-            print 'durrrr'
+            with open(cmd_list[1]) as file:
+                data = data="".join(line.rstrip() for line in file)
+            dataconn.send(data)
         dataconn.close()
 
     def init_data_conn(self, host):
