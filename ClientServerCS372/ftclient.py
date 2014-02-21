@@ -25,7 +25,7 @@ class ftclient:
 
         print 'Connected over host B on port 30021.'        
 
-    def start(self, host, cmd, file):
+    def start(self, host):
         """
         Handles the following:
         1. Adjusting command to send to server
@@ -37,29 +37,43 @@ class ftclient:
         4. Closes the TCP data connection.
         """
         try:
-            if cmd == 'get':
-                cmd = cmd + ' ' + file
+            while True:
+                file_flag = False
+                cmd = raw_input('Enter a command: ')
+                if not cmd.strip():
+                    print 'uhoh'
+                    break
+                
+                if 'get' in cmd:
+                    tmp = cmd.split()
+                    if len(tmp) > 1:
+                        filename = tmp[1]
+                        file_flag = True
 
-            self.ctrl_sock.send(cmd)
-            data = self.ctrl_sock.recv(self.BUFFER_SIZE)
+                self.ctrl_sock.send(cmd)
+                data = self.ctrl_sock.recv(self.BUFFER_SIZE)
             
-            if data:           
-                data = data.split()
+                if data:           
+                    data = data.split()
 
-                # If the data we got back is an error, print it out.
-                # Otherwise, it's time for some real data!
-                if int(data[0]) == 0:
-                    print ' '.join(map(str, data[1:]))
-                else:
-                    # Connect to Q, get data from it, print that out
-                    self.connect_for_data(host)
-                    self.handle_data(file)
-                    self.data_sock.close()
-         
-            self.ctrl_sock.close()
+                    # If the data we got back is an error, print it out.
+                    # Otherwise, it's time for some real data!
+                    if int(data[0]) == 0:
+                        print ' '.join(map(str, data[1:]))
+                    else:
+                        # Connect to Q, get data from it, print that out
+                        self.connect_for_data(host)
+                        if file_flag:
+                            self.handle_data(filename)
+                        else:
+                            self.handle_data('')
+                        print 'Closing data connection...'
+                        self.data_sock.close()
         except KeyboardInterrupt:
             pass
-        finally:
+        finally:         
+            print 'Closing control connection...'
+            self.ctrl_sock.close()
             print '\nExiting...'
 
     def connect_for_data(self, host):
@@ -92,11 +106,8 @@ class ftclient:
 # Enty point for the application.
 # Intantiates and starts the client.
 if __name__ == "__main__":
-    if len(sys.argv) > 4 or len(sys.argv) < 3:
-        print 'usage: ftclient [host] [command] (optional)[filename]'
+    if len(sys.argv) > 2 or len(sys.argv) < 1:
+        print 'usage: ftclient [host]'
     else:
         client = ftclient(sys.argv[1])
-        if len(sys.argv) == 3:
-            client.start(sys.argv[1], sys.argv[2], '')
-        else:
-            client.start(sys.argv[1], sys.argv[2], sys.argv[3])
+        client.start(sys.argv[1])
