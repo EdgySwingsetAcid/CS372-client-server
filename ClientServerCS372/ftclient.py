@@ -1,6 +1,8 @@
 import os
 import socket
 import sys
+import errno
+import time
 
 class ftclient:
     """
@@ -11,17 +13,18 @@ class ftclient:
 
     Author: Phillip Carter
     Class: CS 372, Winter 2014
-    Last Modified: 2/17/2014
+    Last Modified: 2/22/2014
     """
 
     CTRLPORT = 30021
     DATAPORT = 30020
     BUFFER_SIZE = 1024
+    MAX_ATTEMPTS = 5
 
-    def __init__(self, host):
+    def __init__(self, host, port):
         """ Initialization routine.  Connects to port 30021. """
         self.ctrl_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.ctrl_sock.connect((host, self.CTRLPORT))
+        self.ctrl_sock.connect((host, port))
 
         print 'Connected over host B on port 30021.'        
 
@@ -37,11 +40,11 @@ class ftclient:
         4. Closes the TCP data connection.
         """
         try:
+            self.attempt_login()
             while True:
                 file_flag = False
-                cmd = raw_input('Enter a command: ')
+                cmd = raw_input('Enter a command, or hit enter to exit: ')
                 if not cmd.strip():
-                    print 'uhoh'
                     break
                 
                 if 'get' in cmd:
@@ -62,24 +65,61 @@ class ftclient:
                         print ' '.join(map(str, data[1:]))
                     else:
                         # Connect to Q, get data from it, print that out
-                        self.connect_for_data(host)
+                        try:
+                            self.connect_for_data(host)
+                        except RuntimeError as ex:
+                            if ex.message == 'Max number of unsuccessful attempts reached':
+                                continue
+
                         if file_flag:
-                            self.handle_data(filename)
+                            if os.path.exists(filename):
+                                print 'File already exists in this directory.'
+                                continue
+                            else:
+                                self.handle_data(filename)
                         else:
                             self.handle_data('')
                         print 'Closing data connection...'
                         self.data_sock.close()
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:            
             pass
         finally:         
             print 'Closing control connection...'
             self.ctrl_sock.close()
             print '\nExiting...'
 
+    def attempt_login(self):
+        while True:
+            login = raw_input('Enter a username: ')
+            pwd = raw_input('Enter the password: ')
+            self.ctrl_sock.send(login + pwd)
+            if self.ctrl_sock.recv(self.BUFFER_SIZE) == 'success':
+                print 'Success!\n'
+                break
+            else:
+                print 'Login error.  Try again.'
+
     def connect_for_data(self, host):
-        """ Establishes a TCP Data connection on port 320020 """
-        self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.data_sock.connect((host, self.DATAPORT))
+        """ 
+        Attempts to establish a TCP Data connection over port 320020.
+        If it cannot connect 5 times, it raises a runtime error
+        and the client will exit.
+        """
+        for attempt in range(self.MAX_ATTEMPTS):
+            try:
+                self.data_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.data_sock.connect((host, self.DATAPORT))
+                print 'Connected to a data connection over port 320020...'
+            except EnvironmentError as exc:
+                if exc.errno == errno.ECONNREFUSED:
+                    print 'Connection failure; trying again in 1 second...'
+                    time.sleep(1)
+                else:
+                    raise
+            else:
+                break
+        else:
+            raise RuntimeError("Max number of unsuccessful attempts reached")
 
     def handle_data(self, file):
         """
@@ -98,7 +138,7 @@ class ftclient:
                 print '\n'.join(os.listdir(data))
             else:
                 print 'Got the file!  Writing to directory...'
-                with open(file, 'w') as the_file:
+                with open(file, 'w+') as the_file:
                     the_file.write(data)
                 print 'durrr'
                 # save the file in the current directory
@@ -106,8 +146,8 @@ class ftclient:
 # Enty point for the application.
 # Intantiates and starts the client.
 if __name__ == "__main__":
-    if len(sys.argv) > 2 or len(sys.argv) < 1:
-        print 'usage: ftclient [host]'
+    if not len(sys.argv) == 3:
+        print 'usage: ftclient [host] [port]'
     else:
-        client = ftclient(sys.argv[1])
+        client = ftclient(sys.argv[1], int(sys.argv[2]))
         client.start(sys.argv[1])

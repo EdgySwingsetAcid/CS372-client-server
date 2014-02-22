@@ -12,13 +12,15 @@ class ftserv:
 
     Author: Phillip Carter
     Class: CS 372, Winter 2014
-    Last Modified: 2/17/2014
+    Last Modified: 2/22/2014
     """
 
     HOST = 'localhost'
     CTRLPORT = 30021
     DATAPORT = 30020
     BUFFER_SIZE = 1024
+    USERNAME = 'GuruOfFunk'
+    PWD = 'Funkify'
 
     def __init__(self):
         """
@@ -51,8 +53,11 @@ class ftserv:
         try:
             ctrlconn, ctrladdr = self.ctrlsock.accept()
             print 'Client connected!'
+
+            self.do_login(ctrlconn)
+
             while True:
-                print 'Waiting on client...'
+                print 'Waiting on client to send command...'
                 data = ctrlconn.recv(self.BUFFER_SIZE)
             
                 if data:
@@ -65,19 +70,32 @@ class ftserv:
                             self.service_client(cmd_list, True)
                         else:
                             print 'Received get command.'
-                            ctrlconn.send('1')
                             if len(cmd_list) > 1 and self.valid_file(cmd_list[1]):
+                                ctrlconn.send('1')
                                 self.service_client(cmd_list, False)
                             else:
                                 ctrlconn.send('0 ERROR: file does not exist in current directory.')                    
                     else:
-                        conn.send('0 ERROR: command not supported.')
+                        ctrlconn.send('0 ERROR: command not supported.')
+                else:
+                    break
         except KeyboardInterrupt:
             pass
         finally:
             print 'Closing control connection...'
-            ctrlconn.close()
+            self.ctrlsock.close()
             print '\nExiting...'
+
+    def do_login(self, ctrlconn):
+        """ Continuously checks a user login attempt until it's valid. """
+        while True:
+            data = ctrlconn.recv(self.BUFFER_SIZE)
+            if data and data == self.USERNAME + self.PWD:
+                ctrlconn.send('success')
+                break
+            else:
+                ctrlconn.send('failure')
+
 
     def service_client(self, cmd_list, list_flag):
         """
@@ -102,7 +120,7 @@ class ftserv:
 
     def init_data_conn(self):
         """ Initializes a TCP data connection on port 30020. """
-        print 'Connecting over host A on port 30020...'
+        print 'Establishing data connection on port 30020...'
 
         self.datasock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.datasock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
