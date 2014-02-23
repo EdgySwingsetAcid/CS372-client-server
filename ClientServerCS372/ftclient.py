@@ -18,7 +18,7 @@ class ftclient:
 
     CTRLPORT = 30021
     DATAPORT = 30020
-    BUFFER_SIZE = 1024
+    BUFFER_SIZE = 4096
     MAX_ATTEMPTS = 5
 
     def __init__(self, host, port):
@@ -53,6 +53,13 @@ class ftclient:
                         filename = tmp[1]
                         file_flag = True
 
+                if 'cd' in cmd:
+                    tmp = cmd.split()
+                    print tmp
+                    if len(tmp) < 2 or len(tmp) > 2:
+                        print 'Need a directory to change to!'
+                        continue
+
                 self.ctrl_sock.send(cmd)
                 data = self.ctrl_sock.recv(self.BUFFER_SIZE)
             
@@ -63,12 +70,12 @@ class ftclient:
                     # Otherwise, it's time for some real data!
                     if int(data[0]) == 0:
                         print ' '.join(map(str, data[1:]))
-                    else:
+                    elif not 'cd' in cmd:
                         # Connect to Q, get data from it, print that out
                         try:
                             self.connect_for_data(host)
                         except RuntimeError as ex:
-                            if ex.message == 'Max number of unsuccessful attempts reached':
+                            if ex.args == 'Max number of unsuccessful attempts reached':
                                 continue
 
                         if file_flag:
@@ -104,6 +111,9 @@ class ftclient:
         Attempts to establish a TCP Data connection over port 320020.
         If it cannot connect 5 times, it raises a runtime error
         and the client will exit.
+
+        Modified from the following:
+        http://stackoverflow.com/a/2560472/1400198
         """
         for attempt in range(self.MAX_ATTEMPTS):
             try:
@@ -140,7 +150,7 @@ class ftclient:
                 print 'Got the file!  Writing to directory...'
                 with open(file, 'w+') as the_file:
                     the_file.write(data)
-                print 'durrr'
+                print 'Transfer Complete!'
                 # save the file in the current directory
 
 # Enty point for the application.

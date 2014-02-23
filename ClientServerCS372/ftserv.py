@@ -2,6 +2,29 @@ import sys
 import os
 import socket
 
+class cd:
+    """
+    Small class to handle saving the original cwd,
+    changing to a given directory, and reverting
+    back to the original cwd.
+    """
+    def __init__(self):
+        """ 
+        Saves the original current working directory.
+        This is so the server can get back to its original
+        directory before terminating.
+        """
+        self.origin = os.getcwd()
+
+    def go(self, path):
+        os.chdir(path)
+
+    def revert(self):
+        if not os.getcwd() == self.origin:
+            os.chdir(self.origin)
+
+
+
 class ftserv:
     """
     Class which represents the ftserv server.
@@ -21,6 +44,8 @@ class ftserv:
     BUFFER_SIZE = 1024
     USERNAME = 'GuruOfFunk'
     PWD = 'Funkify'
+
+    valid_cmds = ['list', 'get', 'cd']
 
     def __init__(self):
         """
@@ -50,6 +75,8 @@ class ftserv:
         2. Ceasing to waiting on a client once that client closes the TCP control connection.
         3. Closing the TCP control connection once a termination signal is recieved.
         """        
+
+        self.cd = cd()
         try:
             ctrlconn, ctrladdr = self.ctrlsock.accept()
             print 'Client connected!'
@@ -64,17 +91,25 @@ class ftserv:
                     cmd_list = data.split()
 
                     if self.valid_cmd(cmd_list[0]):
-                        if cmd_list[0] == 'list':
-                            print 'Received list command.'
-                            ctrlconn.send('1')
-                            self.service_client(cmd_list, True)
-                        else:
+                        if cmd_list[0] == 'get':
                             print 'Received get command.'
                             if len(cmd_list) > 1 and self.valid_file(cmd_list[1]):
                                 ctrlconn.send('1')
-                                self.service_client(cmd_list, False)
+                                self.service_client(cmd_list)
                             else:
-                                ctrlconn.send('0 ERROR: file does not exist in current directory.')                    
+                                ctrlconn.send('0 ERROR: file does not exist in current directory.')
+                        elif cmd_list[0] == 'list':
+                            print 'Received list command.'
+                            ctrlconn.send('1')
+                            self.service_client(cmd_list)
+                        elif cmd_list[0] == 'cd':
+                            print 'Received cd command.'
+                            if len(cmd_list) > 1 and os.path.isdir(cmd_list[1]):
+                                ctrlconn.send('1')
+                                self.service_client(cmd_list)
+                            else:
+                                ctrlconn.send('0 ERROR: no valid directory path given.')
+                                               
                     else:
                         ctrlconn.send('0 ERROR: command not supported.')
                 else:
@@ -82,6 +117,7 @@ class ftserv:
         except KeyboardInterrupt:
             pass
         finally:
+            self.cd.revert()
             print 'Closing control connection...'
             self.ctrlsock.close()
             print '\nExiting...'
@@ -97,26 +133,32 @@ class ftserv:
                 ctrlconn.send('failure')
 
 
-    def service_client(self, cmd_list, list_flag):
+    def service_client(self, cmd_list):
         """
-        Utility function which sets up a TCP data connection,
-        accepts a connection, and sends either the current working directory
-        or the contents of the requested file.
-
-        Precondition:  if list_flag is false, cmd_list[1] is a valid file.
+        Utility function which handles a client command.
+        (a) Changes the current working directory
+        (b) establishes a TCP data connection, and:
+            (1) Gets a named file from the current working directory and
+                sends it to the client, or
+            (2) Sends the current working directory to the client.
         """
-        self.init_data_conn()
-        dataconn, dataaddr = self.datasock.accept()
 
-        if list_flag:
-            dataconn.send(os.getcwd())
-            print 'Current Working Directory sent!'
+        if cmd_list[0] == 'cd':
+            self.cd.go(cmd_list[1])
+            print 'Changed directory!'
         else:
-            with open(cmd_list[1]) as file:
-                data = data = "".join(line.rstrip() for line in file)
-            dataconn.send(data)
-        print 'Closing data connection...'
-        dataconn.close()
+            self.init_data_conn()
+            dataconn, dataaddr = self.datasock.accept()
+
+            if cmd_list[0] == 'get':
+                with open(cmd_list[1]) as file:
+                    data = data = "".join(line.rstrip() for line in file)
+                dataconn.send(data)
+            elif cmd_list[0] == 'list':
+                dataconn.send(os.getcwd())
+                print 'Current Working Directory sent!'
+
+            dataconn.close()
 
     def init_data_conn(self):
         """ Initializes a TCP data connection on port 30020. """
@@ -129,15 +171,11 @@ class ftserv:
 
     def valid_cmd(self, cmd):
         """Checks to see if command sent from server is a 'list' or 'get' command. """
-        return cmd == 'list' or cmd == 'get'
+        return cmd in self.valid_cmds
     
     def valid_file(self, path):
         """ Checks that a file exists in the cwd and is a file (not directory). """
         return os.path.exists(path) and os.path.isfile(path)
-
-    def get_cwd(self):
-        """ Assembles the current working directory as a string """
-        return os.getcwd()
 
 # Enty point for the application.
 # Intantiates and starts the server.
