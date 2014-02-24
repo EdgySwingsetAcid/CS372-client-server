@@ -17,9 +17,11 @@ class cd:
         self.origin = os.getcwd()
 
     def go(self, path):
+        """ Changes the current working directonry. """
         os.chdir(path)
 
     def revert(self):
+        """ Reverts the current working directory back to its origin. """
         if not os.getcwd() == self.origin:
             os.chdir(self.origin)
 
@@ -35,7 +37,7 @@ class ftserv:
 
     Author: Phillip Carter
     Class: CS 372, Winter 2014
-    Last Modified: 2/22/2014
+    Last Modified: 2/23/2014
     """
 
     HOST = 'localhost'

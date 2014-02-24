@@ -13,7 +13,7 @@ class ftclient:
 
     Author: Phillip Carter
     Class: CS 372, Winter 2014
-    Last Modified: 2/22/2014
+    Last Modified: 2/23/2014
     """
 
     CTRLPORT = 30021
@@ -52,13 +52,6 @@ class ftclient:
                     if len(tmp) > 1:
                         filename = tmp[1]
                         file_flag = True
-
-                if 'cd' in cmd:
-                    tmp = cmd.split()
-                    print tmp
-                    if len(tmp) < 2 or len(tmp) > 2:
-                        print 'Need a directory to change to!'
-                        continue
 
                 self.ctrl_sock.send(cmd)
                 data = self.ctrl_sock.recv(self.BUFFER_SIZE)
